@@ -46,6 +46,7 @@ yt-dlp is a feature-rich command-line audio/video downloader with support for [t
     * [Configuration file encoding](#configuration-file-encoding)
     * [Authentication with netrc](#authentication-with-netrc)
     * [Notes about environment variables](#notes-about-environment-variables)
+* [DOWNLOAD PROFILES](#download-profiles)
 * [OUTPUT TEMPLATE](#output-template)
     * [Output template examples](#output-template-examples)
 * [FORMAT SELECTION](#format-selection)
@@ -445,6 +446,20 @@ Tip: Use `CTRL`+`F` (or `Command`+`F`)  to search by keywords
                                     See the "Preset Aliases" section at the end
                                     for more info. This option can be used
                                     multiple times
+    --profile NAME                  Apply a user-defined download profile from
+                                    the profile file. Options given on the
+                                    command line override those of the profile.
+                                    See "DOWNLOAD PROFILES" for details
+    --no-profile                    Do not apply any download profile (default)
+    --profile-file FILE             Location of the profile file; either the
+                                    path to the file or its containing
+                                    directory. By default, "profiles.json" is
+                                    searched for in the user and system
+                                    configuration directories
+    --list-profiles                 List all download profiles in the profile
+                                    file and exit
+    --show-profile NAME             Show the options of a download profile and
+                                    exit
 
 ## Network Options:
     --proxy URL                     Use the specified HTTP/HTTPS/SOCKS proxy. To
@@ -1273,6 +1288,70 @@ yt-dlp --netrc-cmd 'gpg --decrypt ~/.authinfo.gpg' 'https://www.youtube.com/watc
 * If unset, `${XDG_CONFIG_HOME}` defaults to `~/.config` and `${XDG_CACHE_HOME}` to `~/.cache`
 * On Windows, `~` points to `${HOME}` if present; or, `${USERPROFILE}` or `${HOMEDRIVE}${HOMEPATH}` otherwise
 * On Windows, `${USERPROFILE}` generally points to `C:\Users\<user name>` and `${APPDATA}` to `${USERPROFILE}\AppData\Roaming`
+
+# DOWNLOAD PROFILES
+
+**Note**: Download profiles are a local modification of this copy of yt-dlp and are not part of upstream yt-dlp.
+
+A download profile is a named, reusable set of options. Profiles are opt-in: they are only used when `--profile`, `--list-profiles` or `--show-profile` is given.
+
+Profiles are stored in a JSON file named `profiles.json`. Unless `--profile-file` is given, the first existing file among these locations is used:
+
+* `${XDG_CONFIG_HOME}/yt-dlp/profiles.json`
+* `${APPDATA}/yt-dlp/profiles.json`
+* `~/.yt-dlp/profiles.json`
+* `/etc/yt-dlp/profiles.json`
+
+The file contains a `profiles` object that maps each profile name to its options. An option is written as the long name of a command line option without the leading `--`, using either `_` or `-` (e.g. `audio_format` or `audio-format` for `--audio-format`). Values are given as follows:
+
+* Switches (options that take no argument) are `true`, or `false` to use the matching `--no-` option (e.g. `"embed_metadata": false` is `--no-embed-metadata`)
+* Options that take an argument are a string or number. A list repeats the option once per item (e.g. `"parse_metadata": ["A", "B"]`)
+* Options that take multiple arguments (e.g. `replace_in_metadata`) are a list of those arguments, or a list of such lists
+
+```json
+{
+  "profiles": {
+    "podcast": {
+      "extract_audio": true,
+      "audio_format": "mp3",
+      "audio_quality": 0,
+      "embed_metadata": true,
+      "embed_thumbnail": true
+    },
+    "archival": {
+      "format": "bestvideo+bestaudio/best",
+      "write_info_json": true,
+      "write_thumbnail": true,
+      "embed_metadata": true
+    },
+    "mobile": {
+      "format": "best[height<=720]",
+      "remux_video": "mp4"
+    }
+  }
+}
+```
+
+The whole file is validated when it is used, and unknown options, wrongly typed values or a malformed file cause an error. Options that control how configuration and profiles are located (e.g. `config_locations`, `ignore_config`, `profile`) cannot be used inside a profile.
+
+**Precedence**: The selected profile overrides all [configuration files](#configuration) (including those given to `--config-locations`), and the options given on the command line override the profile, regardless of where `--profile` appears. `--profile` itself may also be placed in a configuration file, and `--no-profile` disables it again. Use `-v` to see the options contributed by the profile.
+
+```
+# List the available profiles
+yt-dlp --list-profiles
+
+# Show the options of a profile
+yt-dlp --show-profile podcast
+
+# Download using a profile
+yt-dlp --profile podcast URL
+
+# Use a profile file in a custom location
+yt-dlp --profile-file ./profiles.json --profile mobile URL
+
+# Explicit options override the profile; this extracts FLAC instead of MP3
+yt-dlp --profile podcast --audio-format flac URL
+```
 
 # OUTPUT TEMPLATE
 

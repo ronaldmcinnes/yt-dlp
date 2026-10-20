@@ -20,6 +20,7 @@ from .postprocessor import (
     SponsorBlockPP,
 )
 from .postprocessor.modify_chapters import DEFAULT_SPONSORBLOCK_CHAPTER_TITLE
+from .profiles import PROFILE_FILE_NAME, ProfileError, resolve_profile
 from .update import UPDATE_SOURCES, detect_variant, is_non_updateable
 from .utils import (
     OUTTMPL_TYPES,
@@ -109,6 +110,16 @@ def parseOpts(overrideArguments=None, ignore_config_files='if_override'):  # noq
             root.configs[0].load_configs()  # Resolve any aliases using --config-location
         except ValueError as err:
             raise root.parser.error(err)
+
+        # The selected profile is applied just below the arguments given on the command-line,
+        # so that it overrides all configuration files but not the explicit options
+        profile_opts, _ = root.parse_known_args()
+        if profile_opts.profile:
+            try:
+                profile_file, profile = resolve_profile(profile_opts.profile, profile_opts.profile_file, root.parser)
+            except ProfileError as err:
+                raise root.parser.error(err)
+            root.configs[0].insert_config(0, profile.args, profile_file, label=f'Profile "{profile.name}"')
 
         opts, args = root.parse_args()
     except optparse.OptParseError:
@@ -603,6 +614,31 @@ def create_parser():
             f'The following presets are available: {", ".join(_PRESET_ALIASES)}. '
             'See the "Preset Aliases" section at the end for more info. '
             'This option can be used multiple times'))
+    general.add_option(
+        '--profile',
+        metavar='NAME', dest='profile', default=None,
+        help=(
+            'Apply a user-defined download profile from the profile file. '
+            'Options given on the command line override those of the profile. '
+            'See "DOWNLOAD PROFILES" for details'))
+    general.add_option(
+        '--no-profile',
+        dest='profile', action='store_const', const=None,
+        help='Do not apply any download profile (default)')
+    general.add_option(
+        '--profile-file',
+        metavar='FILE', dest='profile_file', default=None,
+        help=(
+            'Location of the profile file; either the path to the file or its containing directory. '
+            f'By default, "{PROFILE_FILE_NAME}" is searched for in the user and system configuration directories'))
+    general.add_option(
+        '--list-profiles',
+        action='store_true', dest='list_profiles', default=False,
+        help='List all download profiles in the profile file and exit')
+    general.add_option(
+        '--show-profile',
+        metavar='NAME', dest='show_profile', default=None,
+        help='Show the options of a download profile and exit')
 
     network = optparse.OptionGroup(parser, 'Network Options')
     network.add_option(

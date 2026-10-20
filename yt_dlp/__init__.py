@@ -22,6 +22,13 @@ from .networking.impersonate import ImpersonateTarget
 from .globals import IN_CLI, plugin_dirs
 from .options import parseOpts
 from .plugins import load_all_plugins as _load_all_plugins
+from .profiles import (
+    ProfileError,
+    format_profile,
+    format_profile_list,
+    load_profile_file,
+    resolve_profile,
+)
 from .postprocessor import (
     FFmpegExtractAudioPP,
     FFmpegMergerPP,
@@ -126,6 +133,20 @@ def print_extractor_information(opts, urls):
             [[mso_id, mso_info['name']] for mso_id, mso_info in MSO_INFO.items()]))
     else:
         return False
+    write_string(out, out=sys.stdout)
+    return True
+
+
+def print_profile_information(parser, opts):
+    if not (opts.list_profiles or opts.show_profile):
+        return False
+    try:
+        if opts.list_profiles:
+            out = format_profile_list(*load_profile_file(opts.profile_file, parser))
+        else:
+            out = format_profile(*resolve_profile(opts.show_profile, opts.profile_file, parser))
+    except ProfileError as err:
+        parser.error(err)
     write_string(out, out=sys.stdout)
     return True
 
@@ -966,7 +987,7 @@ def _real_main(argv=None):
 
     parser, opts, all_urls, ydl_opts = parse_options(argv)
 
-    if print_extractor_information(opts, all_urls):
+    if print_extractor_information(opts, all_urls) or print_profile_information(parser, opts):
         return
 
     # We may need ffmpeg_location without having access to the YoutubeDL instance

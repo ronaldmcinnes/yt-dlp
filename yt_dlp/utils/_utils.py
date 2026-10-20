@@ -5015,10 +5015,14 @@ class Config:
         return opts
 
     def append_config(self, *args, label=None):
+        self.insert_config(len(self.configs), *args, label=label)
+
+    def insert_config(self, index, *args, label=None):
+        """Configs earlier in the list take precedence over later ones (but not over own_args)"""
         config = type(self)(self.parser, label)
         config._loaded_paths = self._loaded_paths
         if config.init(*args):
-            self.configs.append(config)
+            self.configs.insert(index, config)
 
     @property
     def all_args(self):
